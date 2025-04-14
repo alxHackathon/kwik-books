@@ -1,0 +1,112 @@
+// Prisma schema file for all data models
+// This file defines the data models and their relationships for the application.
+// It includes models for users, organizations, workspaces, floorplans, spaces, and bookings.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  EMPLOYEE
+  LEARNER
+  INDEPENDENT_USER
+}
+
+enum SpaceType {
+  DESK
+  ROOM
+  LOUNGE
+  OTHER
+}
+
+model Tenant {
+  id          String     @id @default(uuid())
+  name        String
+  subdomain   String     @unique
+  logoUrl     String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  users       User[]
+  workspaces  Workspace[]
+  floorplans  Floorplan[] // ✅ Needed to match the org <-> floorplan relation
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  password       String
+  fullName       String
+  role           Role          @default(INDEPENDENT_USER)
+  organizationId String?       // Optional, allows independent users
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  bookings       Booking[]
+}
+
+model Workspace {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  address        String?
+  isPublic       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  floorplans     Floorplan[]
+  bookings       Booking[]
+}
+
+model Floorplan {
+  id             String       @id @default(uuid())
+  label          String
+  imageUrl       String?
+  workspaceId    String
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  spaces         Space[]
+}
+
+model Space {
+  id           String     @id @default(uuid())
+  label        String
+  type         SpaceType
+  x            Float?
+  y            Float?
+  width        Float?
+  height       Float?
+  capacity     Int        @default(1)
+  isAvailable  Boolean    @default(true)
+  floorplanId  String
+  floorplan    Floorplan  @relation(fields: [floorplanId], references: [id])
+
+  bookings     Booking[]
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  spaceId     String
+  space       Space    @relation(fields: [spaceId], references: [id])
+  startTime   DateTime
+  endTime     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
