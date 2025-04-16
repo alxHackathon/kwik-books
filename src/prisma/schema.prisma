@@ -1,6 +1,6 @@
 // Prisma schema file for all data models
 // This file defines the data models and their relationships for the application.
-// It includes models for users, organizations, workspaces, floorplans, spaces, and bookings.
+// It includes models for users, Tenants, workspaces, floorplans, spaces, and bookings.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,6 +13,7 @@ datasource db {
 }
 
 enum Role {
+  ADMIN
   SUPER_ADMIN
   TENANT_ADMIN
   EMPLOYEE
@@ -37,7 +38,7 @@ model Tenant {
 
   users       User[]
   workspaces  Workspace[]
-  floorplans  Floorplan[] // ✅ Needed to match the org <-> floorplan relation
+  floorplans  Floorplan[]
 }
 
 model User {
@@ -46,19 +47,20 @@ model User {
   password       String
   fullName       String
   role           Role          @default(INDEPENDENT_USER)
-  organizationId String?       // Optional, allows independent users
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organisationId String?       // Optional, allows independent users
+  organisation   Tenant? @relation(fields: [organisationId], references: [id])
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   bookings       Booking[]
+  tenantAdminPermissions AdminPermissions? @relation("UserPermissions")
 }
 
 model Workspace {
   id             String       @id @default(uuid())
   name           String
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  TenantId String
+  Tenant   Tenant @relation(fields: [TenantId], references: [id])
   address        String?
   isPublic       Boolean      @default(false)
   createdAt      DateTime     @default(now())
@@ -74,8 +76,8 @@ model Floorplan {
   imageUrl       String?
   workspaceId    String
   workspace      Workspace    @relation(fields: [workspaceId], references: [id])
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  TenantId String
+  Tenant   Tenant @relation(fields: [TenantId], references: [id])
   createdAt      DateTime     @default(now())
 
   spaces         Space[]
@@ -109,4 +111,17 @@ model Booking {
   updatedAt   DateTime @updatedAt
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model AdminPermissions {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation("UserPermissions", fields: [userId], references: [id])
+  canManageUsers Boolean @default(false)
+  canManageWorkspaces Boolean @default(false)
+  canManageFloorplans Boolean @default(false)
+  canManageSpaces Boolean @default(false)
+  canManageBookings Boolean @default(false)
+  canManageTenantSettings Boolean @default(false)
+  canManageTenantBilling Boolean @default(false)
 }
