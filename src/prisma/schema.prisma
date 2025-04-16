@@ -59,8 +59,8 @@ model User {
 model Workspace {
   id             String       @id @default(uuid())
   name           String
-  TenantId String
-  Tenant   Tenant @relation(fields: [TenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
   address        String?
   isPublic       Boolean      @default(false)
   createdAt      DateTime     @default(now())
