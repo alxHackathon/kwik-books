@@ -76,8 +76,8 @@ model Floorplan {
   imageUrl       String?
   workspaceId    String
   workspace      Workspace    @relation(fields: [workspaceId], references: [id])
-  TenantId String
-  Tenant   Tenant @relation(fields: [TenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
   createdAt      DateTime     @default(now())
 
   spaces         Space[]
