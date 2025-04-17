@@ -6,9 +6,10 @@ import { FloorplansModule } from './modules/floorplans/floorplans.module';
 import { SpacesModule } from './modules/spaces/spaces.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { OrganisationsModule } from './modules/organisations/organisations.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
-  imports: [WorkspacesModule, FloorplansModule, SpacesModule, BookingsModule, OrganisationsModule],
+  imports: [WorkspacesModule, FloorplansModule, SpacesModule, BookingsModule, OrganisationsModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })

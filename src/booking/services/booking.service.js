@@ -1,0 +1,2 @@
+//This would be the most important serice in the Booking Doamin, this particular service along with the RuleEngineService
+//They both would handle the core business  logic, and enforce most of our rules
