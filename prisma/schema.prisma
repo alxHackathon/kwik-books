@@ -58,19 +58,12 @@ model User {
 model Workspace {
   id             String       @id @default(uuid())
   name           String
-<<<<<<< HEAD:src/prisma/schema.prisma
-<<<<<<< HEAD:prisma/schema.prisma
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-=======
-  TenantId String
-  Tenant   Tenant @relation(fields: [TenantId], references: [id])
->>>>>>> 2a9b6e522eec6aee09b3e4c2c08c38f37cca4fe9:src/prisma/schema.prisma
-=======
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
->>>>>>> authentication:prisma/schema.prisma
+  description    String?
+  location       String?
   address        String?
+  imageUrl       String?
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
   isPublic       Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -85,18 +78,9 @@ model Floorplan {
   imageUrl       String?
   workspaceId    String
   workspace      Workspace    @relation(fields: [workspaceId], references: [id])
-<<<<<<< HEAD:src/prisma/schema.prisma
-<<<<<<< HEAD:prisma/schema.prisma
+
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
-=======
-  TenantId String
-  Tenant   Tenant @relation(fields: [TenantId], references: [id])
->>>>>>> 2a9b6e522eec6aee09b3e4c2c08c38f37cca4fe9:src/prisma/schema.prisma
-=======
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
->>>>>>> authentication:prisma/schema.prisma
   createdAt      DateTime     @default(now())
 
   spaces         Space[]
