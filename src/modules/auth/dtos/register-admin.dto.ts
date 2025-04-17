@@ -13,4 +13,8 @@ export class RegisterAdminDto {
 
   @IsEnum(Role)
   role: Role;
+
+  organisationId?: string;
+  // Optional field for organisation ID
+
 }

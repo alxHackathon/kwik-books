@@ -7,6 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
+
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
@@ -22,7 +23,15 @@ export class AuthService {
     const foundUser = await this.prisma.user.findUnique({ where: { email: user.email } });
     if (!foundUser) throw new HttpException("User not found", 404);
     const payload = { sub: foundUser.id, role: foundUser.role, tenantId: foundUser.organisationId };
-    return { accessToken: this.jwtService.sign(payload), user: foundUser };
+    const { password, ...userWithoutPassword } = foundUser; // remove password from user object
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    let refreshToken;
+    if (foundUser.role === 'TENANT_ADMIN' || foundUser.role === 'SUPER_ADMIN') {
+      refreshToken = this.jwtService.sign(payload, { expiresIn: '1d' });
+    } else {
+      refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    }
+    return { accessToken, refreshToken, user: userWithoutPassword };
   }
 
   async registerAdmin(dto: RegisterAdminDto) {
@@ -33,10 +42,19 @@ export class AuthService {
         password: hashed,
         fullName: dto.fullName,
         role: dto.role,
-        organisationId: null // or assign during org creation
+        organisationId: dto.organisationId || null,
       },
     });
 
     return user;
+  }
+
+  async isSuperAdmin (userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    return user && user.role === 'SUPER_ADMIN';
+  }
+  async isTenantAdmin (userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    return user && user.role === 'TENANT_ADMIN';
   }
 }
