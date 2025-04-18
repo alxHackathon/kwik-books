@@ -3,12 +3,14 @@ import { Controller, Post,
   UseGuards, Request as NestRequest,
   Body, HttpException, 
   UsePipes,
-  ValidationPipe} from '@nestjs/common';
+  ValidationPipe,
+  HttpCode} from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RegisterAdminDto } from '../dtos/register-admin.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { RegularUserDto } from '../dtos/regular-user.dto';
+import { RegisterTenantDto } from '../dtos/register-tenant.dto';
 
 
 @Controller('auth')
@@ -55,9 +57,11 @@ export class AuthController {
     return this.authService.registerAdmin(dto);
   }
 
-  @Post('register-tenant-admin')
-  async registerTenantAdmin(@Body() dto: RegisterAdminDto) {
-    const user = await this.authService.registerAdmin(dto);
-    return user;
+  @UsePipes(ValidationPipe)
+  @HttpCode(201)
+  @Post('/signup-tenant')
+  async registerTenantAdmin(@Body() dto: RegisterTenantDto) {
+    const payload = await this.authService.registerTenant(dto);
+    return payload;
   }
 }

@@ -7,6 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegularUserDto } from '../dtos/regular-user.dto';
+import { RegisterTenantDto } from '../dtos/register-tenant.dto';
 
 
 @Injectable()
@@ -76,10 +77,60 @@ export class AuthService {
     });
     const accessToken = this.jwtService.sign({ sub: user.id }, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign({ sub: user.id }, { expiresIn: '7d' });
-    const { password, ...userWithoutPassword } = user; // remove password from user object
+    const { password, ...userWithoutPassword } = user;
     return {
       accessToken,
       refreshToken,
+      user: userWithoutPassword,
+    };
+  }
+
+  async registerTenant(dto: RegisterTenantDto) {
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existingTenant = await this.prisma.tenant.findFirst({ 
+      where: { 
+      OR: [
+        { subdomain: dto.subdomain },
+        { name: dto.companyName }
+      ] 
+      } 
+    });
+    if (existingUser) {
+      throw new HttpException('User already exists', 400);
+    } else if (existingTenant) {
+      throw new HttpException('Tenant already exists', 400);
+    }
+    const hashed = await bcrypt.hash(dto.password, 10);
+
+    // create tenant first
+    const tenant = await this.prisma.tenant.create({
+      data: {
+        name: dto.companyName,
+        subdomain: dto.subdomain,
+      }});
+
+    if (!tenant) {
+      throw new HttpException('Tenant creation failed', 400);
+    }
+    // link tenant to admin
+    const tenantAdmin = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashed,
+        fullName: dto.fullName,
+        role: "TENANT_ADMIN",
+        tenantId: tenant.id
+      }
+    });
+    const payload = { sub: tenantAdmin.id, role: tenantAdmin.role, tenantId: tenantAdmin.tenantId };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const { password, ...userWithoutPassword } = tenantAdmin;
+    return {
+      message: "Tenant created successfully",
+      accessToken,
+      refreshToken,
+      tenant,
       user: userWithoutPassword,
     };
   }
