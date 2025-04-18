@@ -6,6 +6,7 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { RegularUserDto } from '../dtos/regular-user.dto';
 
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AuthService {
   async login(user: LoginDto) {
     const foundUser = await this.prisma.user.findUnique({ where: { email: user.email } });
     if (!foundUser) throw new HttpException("User not found", 404);
-    const payload = { sub: foundUser.id, role: foundUser.role, tenantId: foundUser.organisationId };
+    const payload = { sub: foundUser.id, role: foundUser.role, tenantId: foundUser.tenantId };
     const { password, ...userWithoutPassword } = foundUser; // remove password from user object
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     let refreshToken;
@@ -42,7 +43,7 @@ export class AuthService {
         password: hashed,
         fullName: dto.fullName,
         role: dto.role,
-        organisationId: dto.organisationId || null,
+        tenantId: dto.organisationId || null,
       },
     });
 
@@ -56,5 +57,30 @@ export class AuthService {
   async isTenantAdmin (userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     return user && user.role === 'TENANT_ADMIN';
+  }
+
+  async registerUser(dto: RegularUserDto) {
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existingUser) {
+      throw new HttpException('User already exists', 400);
+    }
+    const hashed = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashed,
+        fullName: dto.fullName,
+        role: "INDEPENDENT_USER",
+        tenantId: null
+      }
+    });
+    const accessToken = this.jwtService.sign({ sub: user.id }, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign({ sub: user.id }, { expiresIn: '7d' });
+    const { password, ...userWithoutPassword } = user; // remove password from user object
+    return {
+      accessToken,
+      refreshToken,
+      user: userWithoutPassword,
+    };
   }
 }

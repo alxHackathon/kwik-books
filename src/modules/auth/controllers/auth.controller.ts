@@ -1,11 +1,14 @@
 import { Request } from 'express';
 import { Controller, Post,
   UseGuards, Request as NestRequest,
-  Body, HttpException } from '@nestjs/common';
+  Body, HttpException, 
+  UsePipes,
+  ValidationPipe} from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RegisterAdminDto } from '../dtos/register-admin.dto';
 import { LoginDto } from '../dtos/login.dto';
+import { RegularUserDto } from '../dtos/regular-user.dto';
 
 
 @Controller('auth')
@@ -14,6 +17,7 @@ export class AuthController {
 
 
   @Post('/login')
+  @UsePipes(ValidationPipe)
   async login(@Body() dto: LoginDto) {
     const user = await this.authService.validateUser(dto.email, dto.password);
     if (!user) {
@@ -23,9 +27,23 @@ export class AuthController {
   }
 
 
+  @Post('/register')
+  @UsePipes(ValidationPipe)
+  async register(@Body() dto: RegularUserDto) {
+    const user = await this.authService.registerUser(dto);
+    if (!user) {
+      throw new HttpException('User registration failed', 400);
+    }
+    // sends otp through email to user to verify email
+    // stores otp to temporary table / redis cache
+    
+    return user;
+  }
+
   // Only super Admin can register an admin
   @UseGuards(AuthGuard('jwt'))
   @Post('register-admin')
+  @UsePipes(ValidationPipe)
   async registerAdmin(@NestRequest() req: Request, @Body() dto: RegisterAdminDto) {
     const user = req.user as { sub: string };
   
