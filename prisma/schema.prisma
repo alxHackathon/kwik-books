@@ -38,7 +38,26 @@ model Tenant {
   users       User[]
   workspaces  Workspace[]
   floorplans  Floorplan[]
+  settings    TenantSettings?
 }
+
+model TenantSettings {
+  id               String   @id @default(uuid())
+  tenantId         String   @unique
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+
+  businessType     String?
+  phone            String?
+  address          String?
+  city             String?
+  timezone         String?   @default("Africa/Lagos")
+  workingHours     String?   @default("09:00-17:00")
+
+  bookingApprovalRequired Boolean @default(false)
+  maxBookingDurationHours Int?   @default(2)
+  bufferTimeMinutes       Int?   @default(15)
+}
+
 
 model User {
   id             String        @id @default(uuid())
