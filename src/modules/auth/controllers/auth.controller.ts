@@ -11,6 +11,7 @@ import { RegisterAdminDto } from '../dtos/register-admin.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { RegularUserDto } from '../dtos/regular-user.dto';
 import { RegisterTenantDto } from '../dtos/register-tenant.dto';
+import { RefreshTokenDto } from '../dtos/register.dto';
 
 
 @Controller('auth')
@@ -64,4 +65,11 @@ export class AuthController {
     const payload = await this.authService.registerTenant(dto);
     return payload;
   }
+
+  @Post('/refresh')
+  @UsePipes(ValidationPipe)
+  async refresh(@Body() dto: RefreshTokenDto) {
+    const payload = await this.authService.refresh(dto.refreshToken);
+    return { ...payload, message: 'Token refreshed successfully' };
+  } 
 }

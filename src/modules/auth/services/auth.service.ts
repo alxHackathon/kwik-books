@@ -134,4 +134,17 @@ export class AuthService {
       user: userWithoutPassword,
     };
   }
+
+  async  refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      if (!user) throw new HttpException("User not found", 404);
+      const newAccessToken = this.jwtService.sign({ sub: user.id, role: user.role, tenantId: user.tenantId }, { expiresIn: '1h' });
+      return { accessToken: newAccessToken };
+    } catch (error) {
+      console.log(error)
+      throw new HttpException('Invalid refresh token', 401);
+    }
+  }
 }
