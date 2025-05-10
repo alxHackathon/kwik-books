@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  MEMBER
+  INDEPENDENT
+}
+
+enum SpaceType {
+  DESK
+  ROOM
+  EVENT
+  LOUNGE
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELED
+  PENDING
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  subdomain String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  workspaces Workspace[]
+  floorplans Floorplan[]
+  Booking    Booking[]
+}
+
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  fullName    String
+  role        Role      @default(MEMBER)
+  tenantId    String?
+  isVerified  Boolean   @default(false)
+  invitedById String?
+  invitedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  adminPermissions    AdminPermissions[]   @relation("UserPermissions")
+  verificationTokens  VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  tenant              Tenant?              @relation(fields: [tenantId], references: [id])
+  invitedBy           User?                @relation("UserInvites", fields: [invitedById], references: [id])
+  invitesSent         User[]               @relation("UserInvites")
+
+  bookings Booking[]
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  address   String?
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  floorplans Floorplan[]
+  bookings   Booking[]
+}
+
+model Floorplan {
+  id          String    @id @default(uuid())
+  label       String
+  imageUrl    String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  spaces Space[]
+}
+
+model Space {
+  id          String    @id @default(uuid())
+  label       String
+  type        SpaceType
+  x           Float?
+  y           Float?
+  width       Float?
+  height      Float?
+  capacity    Int       @default(1)
+  isAvailable Boolean   @default(true)
+  floorplanId String
+  floorplan   Floorplan @relation(fields: [floorplanId], references: [id])
+  floorId     String
+  floor       Floor     @relation("FloorSpaces", fields: [floorId], references: [id]) // Fix the relation
+  bookings    Booking[]
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  tenantId    String
+  spaceId     String
+  space       Space         @relation(fields: [spaceId], references: [id])
+  startTime   DateTime
+  endTime     DateTime
+  status      BookingStatus @default(CONFIRMED)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+}
+
+model AdminPermissions {
+  id                      String  @id @default(uuid())
+  userId                  String  @unique
+  user                    User    @relation("UserPermissions", fields: [userId], references: [id])
+  canManageUsers          Boolean @default(false)
+  canManageWorkspaces     Boolean @default(false)
+  canManageFloorplans     Boolean @default(false)
+  canManageSpaces         Boolean @default(false)
+  canManageBookings       Boolean @default(false)
+  canManageTenantSettings Boolean @default(false)
+  canManageTenantBilling  Boolean @default(false)
+}
+
+model Floor {
+  id        String   @id @default(cuid())
+  name      String
+  tenantId  String
+  spaces    Space[]  @relation("FloorSpaces")
+  createdAt DateTime @default(now())
+}
+
+model Invite {
+  id          String   @id @default(uuid())
+  email       String
+  role        Role
+  tenantId    String
+  invitedById String
+  token       String   @unique
+  expiresAt   DateTime
+  accepted    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
+model VerificationToken {
+  token     String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
