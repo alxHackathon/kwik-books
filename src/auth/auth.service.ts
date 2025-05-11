@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterIndependentDto } from './dto/register-independent.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterOrgDto } from './dto/register-org.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,8 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { Resend } from 'resend';
 import { InviteUserDto } from './dto/invite-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { JwtPayload } from './types/jwt-payload';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 
@@ -33,7 +36,7 @@ export class AuthService {
 
   /**
    * Register an independent user and send a verification email.
-   */
+    */
   async registerIndependent(dto: RegisterIndependentDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -163,7 +166,39 @@ export class AuthService {
   
     return { message: 'Email verified successfully' };
   }
-  
+
+  async resendVerificationEmail(dto: ResendVerificationDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('No user found with this email');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('User is already verified');
+    }
+
+    // Delete existing tokens for this user
+    await this.prisma.verificationToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    const token = uuidv4();
+
+    await this.prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      },
+    });
+
+    await this.sendVerificationEmail(user.email, token);
+
+    return { message: 'Verification email resent successfully' };
+  }
 
   /**
    * Logs a user in by verifying credentials and issuing a JWT token.
@@ -281,5 +316,73 @@ export class AuthService {
   
     return { message: 'Invite accepted. You can now log in.' };
   } 
+
+  async requestPasswordReset(dto: RequestPasswordResetDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User with this email does not exist');
+    }
+
+    // Delete existing tokens
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    const token = uuidv4();
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 30), // 30 mins
+      },
+    });
+
+    await this.sendPasswordResetEmail(user.email, token);
+
+    return { message: 'Password reset link sent to email if it exists.' };
+  }
+
+  private async sendPasswordResetEmail(email: string, token: string) {
+    const resetUrl = `${this.config.get('FRONTEND_URL')}/reset-password?token=${token}`;
+    const from = this.config.get<string>('RESEND_FROM') || 'KwickBooks <no-reply@kwickbooks.onresend.com>';
+
+    try {
+      await this.resend.emails.send({
+        from,
+        to: [email],
+        subject: 'Reset Your Password',
+        html: `<p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 30 minutes.</p>`,
+      });
+    } catch (err) {
+      console.error('Reset email failed:', err);
+      throw new BadRequestException('Could not send reset email');
+    }
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const record = await this.prisma.passwordResetToken.findUnique({
+      where: { token: dto.token },
+      include: { user: true },
+    });
+
+    if (!record || record.expiresAt < new Date()) {
+      throw new BadRequestException('Token expired or invalid');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: { password: hashedPassword },
+    });
+
+    await this.prisma.passwordResetToken.delete({ where: { token: dto.token } });
+
+    return { message: 'Password has been reset successfully' };
+  }
 
 }
